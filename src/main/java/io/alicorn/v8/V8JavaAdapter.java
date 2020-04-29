@@ -169,9 +169,9 @@ public final class V8JavaAdapter {
 
         //Check if the root object already has a constructor.
         //TODO: Is this faster or slower than checking if a specific V8Value is "undefined"?
-        if (!Arrays.asList(rootObject.getKeys()).contains("v8ConstructJavaClass" + v8FriendlyClassname)) {
-            rootObject.registerJavaMethod(proxy, "v8ConstructJavaClass" + v8FriendlyClassname);
-
+        if (!Arrays.asList(rootObject.getKeys()).contains(name)) {
+            rootObject.registerJavaMethod(proxy, name);
+           /* rootObject.registerJavaMethod(proxy, "v8ConstructJavaClass" + v8FriendlyClassname);
             //Build up the constructor script.
             StringBuilder script = new StringBuilder();
             script.append("this.").append(name).append(" = function() {");
@@ -186,7 +186,7 @@ public final class V8JavaAdapter {
 
             //Evaluate the script to create a new constructor function.
             V8JavaObjectUtils.getRuntimeSarcastically(rootObject).executeVoidScript(script.toString());
-
+*/
             //Build up static methods if needed.
             if (proxy.getInterceptor() == null) {
                 V8Object constructorFunction = (V8Object) rootObject.get(name);
