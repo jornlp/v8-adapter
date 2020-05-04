@@ -2,6 +2,14 @@ package io.alicorn.v8;
 
 import com.eclipsesource.v8.*;
 
+import io.alicorn.v8.annotations.JSDisableMethodAutodetect;
+import io.alicorn.v8.annotations.JSFunction;
+import io.alicorn.v8.annotations.JSGetter;
+import io.alicorn.v8.annotations.JSSetter;
+import io.alicorn.v8.annotations.JSStaticFunction;
+
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.util.*;
 
 /**
@@ -56,7 +64,7 @@ public final class V8JavaAdapter {
      *
      * @return String identifier of the injected object.
      */
-    public static String injectObject(String name, Object object, V8Object rootObject) {
+    public static String injectObject(String name, final Object object, V8Object rootObject) {
 
         // Determine cache to use.
         V8JavaCache cache = getCacheForRuntime(rootObject.getRuntime());
@@ -73,20 +81,63 @@ public final class V8JavaAdapter {
             }
             return injectObject(name, injectedArray, rootObject);
         } else {
-            injectClass("".equals(object.getClass().getSimpleName()) ?
-                                object.getClass().getName().replaceAll("\\.+", "_") :
-                                object.getClass().getSimpleName(),
-                        object.getClass(),
-                        rootObject);
+        	Class<?> classy = object.getClass();
+        	final V8Object o = new V8Object(rootObject.getRuntime());
+        	 final boolean autoDetect = !classy.isAnnotationPresent(JSDisableMethodAutodetect.class);
+             // Get all public methods for the given class.
+        	 HashMap<String, List<Method>> methodSignatures = new HashMap<String, List<Method>>(); 
+        	 
+             for (Method m : classy.getMethods()) {
+                 final boolean explicitlyDeclaredMethod = !m.getDeclaringClass().equals(Object.class)
+                         && !m.isBridge()
+                         && !m.isSynthetic();
+
+                 if (explicitlyDeclaredMethod) {
+                     final String methodName = m.getName();
+
+                     if (!Modifier.isStatic(m.getModifiers())) {
+                         if (autoDetect || m.isAnnotationPresent(JSFunction.class)) {
+                        	 if (!methodSignatures.containsKey(methodName))
+                        		 methodSignatures.put(methodName, new ArrayList<Method>());
+                        	 methodSignatures.get(methodName).add(m);   
+                         }
+/*
+                         // Store any detected getters and setters for later injection via .injectGetterAndSetterProperties()
+                         if (autoDetect && hasPrefix(methodName, BEAN_SETTER_PREFIX) || m.isAnnotationPresent(JSSetter.class)) {
+                             final String setterPropertyName = getJsGetterSetterPropertyName(methodName, BEAN_SETTER_PREFIX);
+                             settersMap.put(setterPropertyName, newInstanceProxy(cache, m));
+
+                         } else if (autoDetect &&
+                                   (hasPrefix(methodName, BEAN_GETTER_PREFIX) || hasPrefix(methodName, BEAN_BOOLEAN_GETTER_PREFIX)) ||
+                                    m.isAnnotationPresent(JSGetter.class)) {
+                             final String getterPropertyName = getJsGetterSetterPropertyName(methodName, BEAN_GETTER_PREFIX,
+                                                                                             BEAN_BOOLEAN_GETTER_PREFIX);
+                             gettersMap.put(getterPropertyName, newInstanceProxy(cache, m));
+                         }
+  */               
+                     }
+                 }
+             }
+             for (final String methodname : methodSignatures.keySet()){
+            	 final List<Method> sigs = methodSignatures.get(methodname);
+	             o.registerJavaMethod(new JavaCallback() {
+	                 @Override public Object invoke(V8Object receiver, V8Array parameters) {
+	                     //See if a method exists.
+	                 	return V8JavaInstanceMethodProxy.callMethodProxy(object, receiver, parameters, methodname, sigs, null);
+	                 }
+	             }, methodname);
+            }       	
+            rootObject.add(name, o);
+            o.release();
+            return name;
+             
         }
 
-        if (name == null) {
-            name = "TEMP" + UUID.randomUUID().toString().replaceAll("-", "");
-        }
-        final V8 v8 = V8JavaObjectUtils.getRuntimeSarcastically(rootObject);
-
-        //Build an empty object instance.
+        /*final V8 v8 = V8JavaObjectUtils.getRuntimeSarcastically(rootObject);     
+        
         V8JavaClassProxy proxy = cache.cachedV8JavaClasses.get(object.getClass());
+        //Build an empty object instance.
+        
         StringBuilder script = new StringBuilder();
         script.append("var ").append(name).append(" = new function() {");
 
@@ -128,13 +179,14 @@ public final class V8JavaAdapter {
              * There is no need to attach v8 object, which is result of overridden java object injection:
              *  - it's either completely self-contained new V8 object
              *  - or if it's normal java object - it's already attached in .translateJavaArgumentToJavascript() method.
-             */
+             *//*
             id = name;
         }
 
         other.release();
-
-        return id;
+        
+        return name;
+        */
     }
 
     /**
