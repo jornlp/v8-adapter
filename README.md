@@ -1,3 +1,8 @@
+# Modifications to Original
+This version contains some changes concerning how objects and classes are added in J2V8. 
+Instead of adding the class to the runtime object, it is added to the V8Object to which it is added.
+-------------
+
 # V8 Java Adapter
 
 [![Maven Central](https://img.shields.io/maven-central/v/io.alicorn.v8/v8-adapter.svg)](https://search.maven.org/#search%7Cga%7C1%7Ca%3A%22v8-adapter%22)
